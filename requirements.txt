@@ -1,0 +1,13 @@
+# Simulation
+pybullet
+numpy
+opencv-python-headless
+xacrodoc
+
+# RL Training
+gymnasium
+stable-baselines3[extra]
+torch
+
+# Configuration
+pyyaml

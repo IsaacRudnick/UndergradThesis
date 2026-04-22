@@ -1,0 +1,7 @@
+.venv/
+logs/
+models/
+analysis/figures/**
+# pycaches
+__pycache__/
+*.pyc
