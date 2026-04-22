@@ -121,12 +121,17 @@ def _fmt_hours(x, _pos):
     return f"{int(x)}"
 
 
+def _fmt_minutes(x, _pos):
+    return f"{int(x)}"
+
+
 def _fmt_percent(x, _pos):
     return f"{x * 100:.0f}%"
 
 
 STEP_FORMATTER    = mticker.FuncFormatter(_fmt_steps)
 HOUR_FORMATTER    = mticker.FuncFormatter(_fmt_hours)
+MINUTE_FORMATTER  = mticker.FuncFormatter(_fmt_minutes)
 PERCENT_FORMATTER = mticker.FuncFormatter(_fmt_percent)
 
 

@@ -7,10 +7,13 @@ Usage:
     python train_pick_place.py --load-model models/ppo_grasp_all.zip
     python train_pick_place.py --timesteps 2000000
     python train_pick_place.py --from-scratch
+    python train_pick_place.py --resume --curriculum ordered --max-hours 25   # stop when cumulative hours across all phases hit 25
 """
 
 import argparse
+import glob
 import os
+import time
 
 import numpy as np
 import torch
@@ -70,6 +73,36 @@ def _zero_cnn_output_layer(model) -> None:
           "(camera activates from zero baseline)")
 
 
+def _phase_wall_hours(curriculum: str, phases=("reach", "reach_hold", "grasp", "pick_place")) -> dict:
+    """Sum wall-clock hours of existing TB event files for each phase of this curriculum.
+
+    Walks `logs/<phase>_<curriculum>/PPO_*/events.out.tfevents.*`; each event file
+    contributes (last_scalar.wall_time − first_scalar.wall_time). Handles resumes
+    which append new PPO_<n> subdirs. Returns {phase: hours}; missing phases → 0.0.
+    """
+    from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+    out = {phase: 0.0 for phase in phases}
+    for phase in phases:
+        phase_dir = os.path.join("logs", f"{phase}_{curriculum}")
+        if not os.path.isdir(phase_dir):
+            continue
+        for run_dir in sorted(glob.glob(os.path.join(phase_dir, "PPO_*"))):
+            events = glob.glob(os.path.join(run_dir, "events.out.tfevents.*"))
+            if not events:
+                continue
+            event_path = max(events, key=os.path.getsize)
+            ea = EventAccumulator(event_path, size_guidance={"scalars": 0})
+            ea.Reload()
+            tags = ea.Tags().get("scalars", [])
+            if not tags:
+                continue
+            sc = ea.Scalars(tags[0])
+            if len(sc) < 2:
+                continue
+            out[phase] += (sc[-1].wall_time - sc[0].wall_time) / 3600.0
+    return out
+
+
 def _warmup_schedule(initial_lr: float, warmup_frac: float = 0.10):
     """Linear warmup from initial_lr/20 over the first warmup_frac of training."""
     def schedule(progress_remaining: float) -> float:
@@ -122,7 +155,7 @@ def make_vec_env(n_envs: int = N_ENVS, curriculum: str = "all"):
         def _init():
             return make_env(render=False, curriculum=curriculum)
         return _init
-    return SubprocVecEnv([_make(i) for i in range(n_envs)])
+    return SubprocVecEnv([_make(i) for i in range(n_envs)], start_method="fork")
 
 
 def evaluate(model, n_episodes: int = 20, render: bool = False,
@@ -172,6 +205,11 @@ def main():
                         help="Sensor curriculum: all=full sensors (default), "
                              "ordered=phase-specific subset, random=30%% per-episode dropout")
     parser.add_argument("--eval-episodes", type=int, default=20)
+    parser.add_argument("--max-hours", type=float, default=None,
+                        help="Stop training once the cumulative wall-clock hours across "
+                             "ALL phases of this curriculum (reach + reach_hold + grasp + "
+                             "pick_place, summing across resumes) reach this budget. "
+                             "Overrides --timesteps when the budget is exhausted first.")
     args = parser.parse_args()
 
     # --resume implies --no-reset and auto-sets the load path to the pick-and-place model
@@ -235,7 +273,8 @@ def main():
 
     eval_env = SubprocVecEnv(
         [lambda _i=i: make_env(render=False, curriculum=args.curriculum)
-         for i in range(N_EVAL_ENVS)]
+         for i in range(N_EVAL_ENVS)],
+        start_method="fork",
     )
     eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False,
                             clip_obs=10.0, training=False)
@@ -262,17 +301,17 @@ def main():
         # Grasp → Pick-and-Place is a smoother transition.
         # Keep policy intact, just reset value function.
         base_lr = 1e-4
+        ent_coef = 0.05 if args.curriculum == "random" else 0.03
         if args.resume:
-            # Resuming: policy is already converged.  Use flat LR (no warmup)
-            # and lower entropy so we don't undo the learned behaviour.
-            lr_schedule = 3e-5
-            ent_coef = 0.01 if args.curriculum == "random" else 0.005
+            # Continue the original training regime seamlessly: flat LR at
+            # base_lr (warmup is long over by the time we resume) and the
+            # same entropy bonus the run was using.
+            lr_schedule = base_lr
         else:
-            lr_schedule = _warmup_schedule(base_lr, warmup_frac=0.10)
             # GraspTask terminates at lift success so the policy has zero
             # post-grasp experience; higher entropy forces exploration of
             # the carry/release/place sequence.
-            ent_coef = 0.05 if args.curriculum == "random" else 0.03
+            lr_schedule = _warmup_schedule(base_lr, warmup_frac=0.10)
         model = PPO.load(
             args.load_model,
             env=env,
@@ -361,11 +400,44 @@ def main():
                     self.training_env.save(self.save_path)
             return True
 
+    class MaxWallTimeCallback(BaseCallback):
+        """Stop training once (prior_hours + current-run elapsed) ≥ max_hours."""
+        def __init__(self, max_hours, prior_hours, verbose=0):
+            super().__init__(verbose)
+            self.max_seconds = max_hours * 3600.0
+            self.prior_seconds = prior_hours * 3600.0
+            self.start_time = None
+        def _on_training_start(self) -> None:
+            self.start_time = time.time()
+        def _on_step(self) -> bool:
+            elapsed = time.time() - self.start_time
+            total = self.prior_seconds + elapsed
+            if total >= self.max_seconds:
+                print(f"\n  [max-hours] Budget reached: "
+                      f"{total/3600:.2f} h ≥ {self.max_seconds/3600:.2f} h "
+                      f"(prior {self.prior_seconds/3600:.2f} h + this run {elapsed/3600:.2f} h)")
+                return False
+            return True
+
     print(f"Training Pick-and-Place ({args.curriculum}) for {args.timesteps} steps ...")
     callbacks = [eval_callback, ProgressBarCallback()]
     if not args.render:
         callbacks.append(SyncNormCallback(eval_env))
         callbacks.append(SaveVecNormOnBestCallback(eval_callback, best_vecnorm_save))
+    if args.max_hours is not None:
+        prior = _phase_wall_hours(args.curriculum)
+        prior_total = sum(prior.values())
+        print(f"  [max-hours] Budget: {args.max_hours:.2f} h total")
+        for phase, hrs in prior.items():
+            print(f"              prior {phase:>10s}: {hrs:6.2f} h")
+        print(f"              prior total       : {prior_total:6.2f} h")
+        remaining = args.max_hours - prior_total
+        if remaining <= 0:
+            print(f"  [max-hours] Budget already exhausted ({prior_total:.2f} h ≥ "
+                  f"{args.max_hours:.2f} h) — training will stop on first step.")
+        else:
+            print(f"              remaining         : {remaining:6.2f} h")
+        callbacks.append(MaxWallTimeCallback(args.max_hours, prior_total))
     model.learn(total_timesteps=args.timesteps, callback=callbacks,
                 reset_num_timesteps=not args.resume)
     model.save(f"models/{args.curriculum}/{save_name}")

@@ -70,7 +70,7 @@ def make_vec_env(task_cls, n_envs: int = N_ENVS, curriculum: str = "all"):
         def _init():
             return make_env(task_cls, render=False, curriculum=curriculum)
         return _init
-    return SubprocVecEnv([_make(i) for i in range(n_envs)])
+    return SubprocVecEnv([_make(i) for i in range(n_envs)], start_method="fork")
 
 
 def evaluate(model, task_cls, n_episodes: int = 20, render: bool = False,
@@ -135,7 +135,8 @@ def main():
     # Eval callback — saves best model during training
     eval_env = SubprocVecEnv(
         [lambda _i=i: make_env(task_cls, render=False, curriculum=args.curriculum)
-         for i in range(N_EVAL_ENVS)]
+         for i in range(N_EVAL_ENVS)],
+        start_method="fork",
     )
     eval_callback = EvalCallback(
         eval_env,

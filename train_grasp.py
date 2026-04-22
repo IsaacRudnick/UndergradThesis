@@ -222,7 +222,7 @@ def make_vec_env(task_cls=GraspTask, n_envs: int = N_ENVS, curriculum: str = "al
         def _init():
             return make_env(task_cls=task_cls, render=False, curriculum=curriculum)
         return _init
-    return SubprocVecEnv([_make(i) for i in range(n_envs)])
+    return SubprocVecEnv([_make(i) for i in range(n_envs)], start_method="fork")
 
 
 def evaluate(model, task_cls=GraspTask, n_episodes: int = 20, render: bool = False,
@@ -318,7 +318,8 @@ def main():
 
     eval_env = SubprocVecEnv(
         [lambda _i=i: make_env(task_cls=task_cls, render=False, curriculum=args.curriculum)
-         for i in range(N_EVAL_ENVS)]
+         for i in range(N_EVAL_ENVS)],
+        start_method="fork",
     )
     # Share normalization stats with eval env (don't update during eval)
     eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0,

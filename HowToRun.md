@@ -6,7 +6,7 @@ To run everything and recreate the figures, run
 ```bash
 make setup         # create .venv and install requirements
 make run-all       # full pipeline (reach → reach_hold → grasp → pick_place), 'all' curriculum
-make figures         # regenerate all analysis figures from logs
+make figures         # regenerate all analysis figures from logs. Must update PPO attempt number in CONFIG blocks of each plot_*.py script before running.
 
 ```
 
@@ -82,6 +82,22 @@ python train_grasp.py --no-reset --load-model models/ppo_grasp_all.zip --timeste
 python train_pick_place.py --no-reset --load-model models/ppo_pick_place_all.zip --timesteps 2000000
 ```
 
+### Pick-and-place with a wall-clock budget
+
+Use `--max-hours H` on `train_pick_place.py` to stop when the cumulative wall-clock
+hours across **all phases of this curriculum** (reach + reach_hold + grasp + every
+pick_place run) reach `H`. The helper scans `logs/<phase>_<curriculum>/PPO_*/` event
+files to compute prior hours, so resumes are counted correctly. Pair with a large
+`--timesteps` so the budget is what actually trips the stop.
+
+```bash
+# Continue the ordered pick_place until total hours == the 'all' curriculum (~25 h)
+python train_pick_place.py --resume --curriculum ordered --max-hours 25 --timesteps 100000000
+
+# Or via the Makefile shortcut (same command):
+make run-ordered-match-all HOURS=25
+```
+
 ---
 
 ## Visualize a Trained Model
@@ -140,6 +156,8 @@ All training scripts:
 | Flag | Default | Description |
 |---|---|---|
 | `--no-reset` | off | Skip value function reset (resuming, not transferring) |
+| `--resume` | off | Resume a pick_place checkpoint: implies `--no-reset`, preserves timestep counter, lowers `ent_coef` |
+| `--max-hours H` | unset | Stop when cumulative wall-clock hours across ALL phases of this curriculum reach `H` (counts resumes) |
 
 Transfer mode summary for `train_grasp.py`:
 

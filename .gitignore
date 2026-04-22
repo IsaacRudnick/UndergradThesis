@@ -5,3 +5,4 @@ analysis/figures/**
 # pycaches
 __pycache__/
 *.pyc
+.claude/

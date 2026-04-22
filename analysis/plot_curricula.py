@@ -17,6 +17,7 @@ import numpy as np
 
 from _common import (
     HOUR_FORMATTER,
+    MINUTE_FORMATTER,
     PHASE_TITLES,
     STEP_FORMATTER,
     draw_series,
@@ -27,6 +28,9 @@ from _common import (
     style_reward_axis,
     style_success_axis,
 )
+
+# Phases whose wall-clock panels should use minutes rather than hours.
+MINUTE_PHASES = {"reach", "reach_hold"}
 
 # ════════════════════════════════════════════════════════════════════════════
 #  CONFIG
@@ -53,18 +57,25 @@ SMOOTH_PER_PHASE = {"reach": 0.4, "reach_hold": 0.4}
 
 
 def _plot_panel(ax, phase, runs, metric, smooth, x_kind):
+    use_minutes = phase in MINUTE_PHASES
     plotted = False
     for run in runs:
         r = load_run(phase, run["curriculum"], run["ppo_n"], metric["tag"])
         if r is None:
             continue
-        x = r["steps"] if x_kind == "steps" else r["rel_hours"]
+        if x_kind == "steps":
+            x = r["steps"]
+        else:
+            x = r["rel_hours"] * 60.0 if use_minutes else r["rel_hours"]
         draw_series(ax, x, r["values"], smooth, resolve_color(run), run["label"])
         plotted = True
 
     if x_kind == "steps":
         ax.xaxis.set_major_formatter(STEP_FORMATTER)
         ax.set_xlabel("Timesteps")
+    elif use_minutes:
+        ax.xaxis.set_major_formatter(MINUTE_FORMATTER)
+        ax.set_xlabel("Real time (minutes) (this phase)")
     else:
         ax.xaxis.set_major_formatter(HOUR_FORMATTER)
         ax.set_xlabel("Real time (hours) (this phase)")

@@ -33,7 +33,7 @@ Results, analysis, and the full thesis writeup will be added here once training 
 
 `envs/` holds the core Gymnasium environment. `arm_env.py` defines `ArmEnv`, the base PyBullet env running at 240 Hz; `tasks.py` defines `ReachTask`, `GraspTask`, and `PickAndPlaceTask` along with their reward functions; `sensors.py` contains the composable observation sensors (proprioceptive, camera, depth, mask); and `extractors.py` has the SB3 feature extractors.
 
-Training scripts live at the project root: `train_reach.py`, `train_grasp.py`, and `train_pick_place.py`, one per phase. `see_arm_camera.py` runs a trained model in a GUI window or, with no arguments, lets you drive the arm manually. `diagnose_reward.py` shows a live breakdown of reward components for debugging, and `plot_training.py` plots TensorBoard logs across runs. `analysis/` contains the curricula-comparison plotting scripts (`plot_curricula.py`, `plot_cumulative.py`); see [HowToRun.md](HowToRun.md#analysis-plots) for usage.
+Training scripts live at the project root: `train_reach.py`, `train_grasp.py`, and `train_pick_place.py`, one per phase. `see_arm_camera.py` runs a trained model in a GUI window or, with no arguments, lets you drive the arm manually. `diagnose_reward.py` shows a live breakdown of reward components for debugging. `analysis/` contains the curricula-comparison plotting scripts (`plot_curricula.py`, `plot_cumulative.py`, `plot_scratch_vs_chain_full.py`); see [HowToRun.md](HowToRun.md#analysis-plots) for usage.
 
 Saved weights and `VecNormalize` stats live in `models/`, TensorBoard logs in `logs/`, and the robot/scene URDFs in `urdf_files/` and `lss_arm_description/`. The former was derived from the latter via a Docker-based extraction process documented in [HowToURDF.md](HowToURDF.md).
 
@@ -82,7 +82,7 @@ python train_pick_place.py --timesteps 7500000 --curriculum ordered
 python train_pick_place.py --timesteps 7500000 --curriculum random
 ```
 
-Training uses 46 parallel envs and 10 eval envs via `SubprocVecEnv`. See [HowToRun.md](HowToRun.md) for the full set of run instructions, including how to resume interrupted runs, all command-line flags, transfer-mode options for `train_grasp.py`, and visualization commands.
+Training uses 46 parallel envs and 10 eval envs via `SubprocVecEnv`. A separate `make run-scratch-full` target produces the from-scratch pick-and-place baseline (14M steps, matching the chain's total timestep budget) used by `analysis/plot_scratch_vs_chain_full.py`. See [HowToRun.md](HowToRun.md) for the full set of run instructions, including how to resume interrupted runs, all command-line flags, transfer-mode options for `train_grasp.py`, and visualization commands.
 
 ## Visualizing a Trained Model
 
