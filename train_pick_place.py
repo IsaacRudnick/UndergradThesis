@@ -301,7 +301,7 @@ def main():
         # Grasp → Pick-and-Place is a smoother transition.
         # Keep policy intact, just reset value function.
         base_lr = 1e-4
-        ent_coef = 0.05 if args.curriculum == "random" else 0.03
+        ent_coef = 0.02 if args.curriculum == "random" else 0.03
         if args.resume:
             # Continue the original training regime seamlessly: flat LR at
             # base_lr (warmup is long over by the time we resume) and the
@@ -323,7 +323,7 @@ def main():
             vf_coef=0.5,
             ent_coef=ent_coef,
             max_grad_norm=0.5,
-            target_kl=0.15,
+            target_kl=0.05 if args.curriculum == "random" else 0.15,
         )
 
         if not resuming:

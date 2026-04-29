@@ -331,10 +331,10 @@ class ArmEnv(gym.Env):
         self.table_id = None
         self.table2_id = None
 
-        # Random curriculum: independently drop each maskable sensor with p=0.2.
+        # Random curriculum: independently drop each maskable sensor with p=0.15.
         # ProprioceptiveSensor, TargetPositionSensor, and SensorMaskSensor are
         # always on (not in _maskable_sensors) so they are never dropped.
-        _RAND_DROP_PROB = 0.2
+        _RAND_DROP_PROB = 0.15
         if self._curriculum == "random" and self._maskable_sensors:
             for s in self._maskable_sensors:
                 s.is_active = bool(self.np_random.random() > _RAND_DROP_PROB)

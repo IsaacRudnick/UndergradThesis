@@ -46,7 +46,27 @@ from _common import (
 PHASE = "pick_place"
 
 ALL_PPO_N = 1
-ORDERED_PPO_NS = [1]  # append more if future resumes land in new PPO_<n> dirs
+
+
+def _all_ppo_ns(phase, curriculum):
+    """Return every PPO_<n> subdir under logs/<phase>_<curriculum>/, sorted by n.
+
+    Auto-detects resume runs so the plot stays correct as `--resume` calls
+    append new PPO_<n> dirs without needing manual edits here.
+    """
+    d = os.path.join(LOG_ROOT, f"{phase}_{curriculum}")
+    if not os.path.isdir(d):
+        return []
+    ns = []
+    for run_dir in glob.glob(os.path.join(d, "PPO_*")):
+        try:
+            ns.append(int(os.path.basename(run_dir).split("_")[1]))
+        except (IndexError, ValueError):
+            continue
+    return sorted(ns)
+
+
+ORDERED_PPO_NS = _all_ppo_ns(PHASE, "ordered") or [1]
 
 # Original pick_place budget (steps). Curve is solid up to here, dashed after.
 DASHED_AFTER_STEPS = 7_500_000

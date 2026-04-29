@@ -651,7 +651,7 @@ class PickAndPlaceTask(Task):
     _PROX_THRESH_NEAR = 0.07   # m
     _PROX_BONUS_FAR   = 15.0   # +15/step within 0.15 m while carrying
     _PROX_BONUS_MID   = 30.0   # +30/step within 0.10 m while carrying
-    _PROX_BONUS_NEAR  = 60.0   # +60/step within 0.07 m while carrying
+    _PROX_BONUS_NEAR  = 30.0   # +30/step within 0.07 m while carrying
 
     # Lift-reward taper near destination: the +35/step lift reward at carry
     # height directly conflicts with lowering the cube for placement.  Scale
@@ -669,10 +669,13 @@ class PickAndPlaceTask(Task):
 
     # Placement bonus — per-step while cube is calmly near target.
     # Gated on velocity so a flung cube that happens to land nearby earns nothing.
-    # Raised 50→150: the arm must overcome the loss of grasp+lift+j1aln rewards
-    # (~90/step) when it releases.  At 150, releasing at the destination is worth
-    # +60/step more than continuing to hover there while grasping.
-    _PLACE_BONUS = 150.0
+    # Sized so that placement total (BONUS × HOLD_STEPS) strictly dominates the
+    # "hover near target while grasping" return over the episode remainder.
+    # With _PROX_BONUS_NEAR halved to 30, hover earn-rate drops to ~45/step, so
+    # hover tail over ~150 remaining steps ≈ 6750.  Placement total 1500 × 5 =
+    # 7500 beats hover with a ~10% margin — enough to dominate without the
+    # variance blowup of a larger per-step spike.
+    _PLACE_BONUS = 1500.0
 
     # Calm-placement gates:
     #   _PLACE_MAX_SPEED   — cube must be below this speed (m/s) to earn
