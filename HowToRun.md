@@ -38,7 +38,7 @@ Run each phase in sequence. Each phase loads the previous phase's model automati
 ### Phase 1A — Reach
 
 ```bash
-python train_reach.py --timesteps 500000
+python train_reach.py --timesteps 500000 --curriculum all
 python train_reach.py --timesteps 500000 --curriculum ordered
 python train_reach.py --timesteps 500000 --curriculum random
 ```
@@ -46,7 +46,7 @@ python train_reach.py --timesteps 500000 --curriculum random
 ### Phase 1B — Reach Hold
 
 ```bash
-python train_reach.py --phase hold --load-model models/ppo_reach_all.zip --timesteps 1000000
+python train_reach.py --phase hold --load-model models/ppo_reach_all.zip --timesteps 1000000 --curriculum all
 python train_reach.py --phase hold --load-model models/ppo_reach_ordered.zip --timesteps 1000000 --curriculum ordered
 python train_reach.py --phase hold --load-model models/ppo_reach_rand.zip --timesteps 1000000 --curriculum random
 ```
@@ -56,7 +56,7 @@ python train_reach.py --phase hold --load-model models/ppo_reach_rand.zip --time
 Automatically loads the matching `ppo_reach_hold_<curriculum>.zip`.
 
 ```bash
-python train_grasp.py --timesteps 5000000
+python train_grasp.py --timesteps 5000000 --curriculum all
 python train_grasp.py --timesteps 5000000 --curriculum ordered
 python train_grasp.py --timesteps 5000000 --curriculum random
 ```
@@ -66,9 +66,9 @@ python train_grasp.py --timesteps 5000000 --curriculum random
 Automatically loads the matching `ppo_grasp_<curriculum>.zip`.
 
 ```bash
-python train_pick_place.py --timesteps 7500000
-python train_pick_place.py --timesteps 7500000 --curriculum ordered
-python train_pick_place.py --timesteps 7500000 --curriculum random
+python train_pick_place.py --timesteps 10000000 --curriculum all
+python train_pick_place.py --timesteps 10000000 --curriculum ordered
+python train_pick_place.py --timesteps 10000000 --curriculum random
 ```
 
 ---
@@ -78,9 +78,29 @@ python train_pick_place.py --timesteps 7500000 --curriculum random
 Pass `--no-reset` to skip value-function resets when resuming an interrupted run (not transferring).
 
 ```bash
-python train_grasp.py --no-reset --load-model models/ppo_grasp_all.zip --timesteps 1500000
-python train_pick_place.py --no-reset --load-model models/ppo_pick_place_all.zip --timesteps 2000000
+python train_grasp.py --no-reset --load-model models/ppo_grasp_all.zip --timesteps 1500000 --curriculum all
+python train_pick_place.py --no-reset --load-model models/ppo_pick_place_all.zip --timesteps 2000000 --curriculum all
 ```
+
+### Entropy bonus decay
+
+`train_pick_place.py` linearly decays `ent_coef` from its initial value down
+to `0.0` across env steps **7,500,000 → 12,500,000** (see
+`EntCoefDecayCallback`). The entropy term contributes a constant upward drift
+on the policy's `log_std` every minibatch; without a counterforce it drives σ
+to runaway, saturates actions through env-clipping, and collapses fine motor
+control late in training. Fading the bonus out lets the policy gradient
+equilibrate σ as precision rewards take over.
+
+The ramp is centered on **10M** (`midpoint = (start + end) / 2`), which makes
+the *total* entropy contribution `∫ ent_coef dt` identical to a hard snap at
+10M — same long-run effect on log_std, smoother transition. Width of the ramp
+controls smoothness only, not total push. The current ent_coef value is
+logged to TensorBoard as `train/ent_coef` so the schedule can be verified.
+
+A `--resume` run that is already past 12.5M (timestep counter is preserved)
+will see `ent_coef = 0` from the first step, so restarting
+`make run-ordered-match-all` is enough to apply the fix.
 
 ### Pick-and-place with a wall-clock budget
 
@@ -95,7 +115,7 @@ files to compute prior hours, so resumes are counted correctly. Pair with a larg
 python train_pick_place.py --resume --curriculum ordered --max-hours 25 --timesteps 100000000
 
 # Or via the Makefile shortcut (same command):
-make run-ordered-match-all HOURS=25
+make run-ordered-match-all
 ```
 
 ---

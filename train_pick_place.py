@@ -419,11 +419,63 @@ def main():
                 return False
             return True
 
+    class EntCoefDecayCallback(BaseCallback):
+        """Linearly decay ent_coef from its initial value to final_ent_coef
+        across [decay_start, decay_end] (in env steps).
+
+        SB3's entropy bonus contributes a roughly constant upward push on
+        log_std each minibatch (~lr·ent_coef, since ∂H/∂log_std = 1 for a
+        diagonal Gaussian).  Past the early-exploration window that constant
+        push has no equilibrium against the policy gradient: σ drifts
+        geometrically, samples saturate after env-clipping, and fine motor
+        control collapses.  Fade the bonus out once exploration is no longer
+        the bottleneck so the policy gradient can equilibrate σ on its own.
+
+        Centering the ramp on what would otherwise be the snap point makes
+        the total entropy contribution (∫ent_coef dt) identical to a hard
+        snap at the same midpoint, regardless of ramp width — so the
+        long-run effect on log_std matches but the transition is smooth.
+        """
+        def __init__(self, decay_start, decay_end, final_ent_coef=0.0, verbose=1):
+            super().__init__(verbose)
+            assert decay_end > decay_start, "decay_end must be > decay_start"
+            self.decay_start = decay_start
+            self.decay_end = decay_end
+            self.final_ent_coef = final_ent_coef
+            self._initial_ent_coef = None
+
+        def _on_training_start(self) -> None:
+            self._initial_ent_coef = float(self.model.ent_coef)
+            if self.verbose:
+                midpoint = (self.decay_start + self.decay_end) // 2
+                print(f"  [ent_coef-decay] initial={self._initial_ent_coef}, "
+                      f"final={self.final_ent_coef}, "
+                      f"linear ramp over [{self.decay_start:,}, {self.decay_end:,}] "
+                      f"(midpoint {midpoint:,})")
+
+        def _on_rollout_end(self) -> None:
+            t = self.num_timesteps
+            if t <= self.decay_start:
+                target = self._initial_ent_coef
+            elif t >= self.decay_end:
+                target = self.final_ent_coef
+            else:
+                frac = (t - self.decay_start) / (self.decay_end - self.decay_start)
+                target = self._initial_ent_coef + frac * (
+                    self.final_ent_coef - self._initial_ent_coef
+                )
+            self.model.ent_coef = target
+            self.logger.record("train/ent_coef", target)
+
+        def _on_step(self) -> bool:
+            return True
+
     print(f"Training Pick-and-Place ({args.curriculum}) for {args.timesteps} steps ...")
     callbacks = [eval_callback, ProgressBarCallback()]
     if not args.render:
         callbacks.append(SyncNormCallback(eval_env))
         callbacks.append(SaveVecNormOnBestCallback(eval_callback, best_vecnorm_save))
+    callbacks.append(EntCoefDecayCallback(decay_start=7_500_000, decay_end=12_500_000))
     if args.max_hours is not None:
         prior = _phase_wall_hours(args.curriculum)
         prior_total = sum(prior.values())

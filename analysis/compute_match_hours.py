@@ -30,7 +30,7 @@ PHASES = ("reach", "reach_hold", "grasp", "pick_place")
 # steps and also lives under logs/pick_place_<curriculum>/; the chain-trained
 # run is ~10M. Skip any pick_place run whose final step exceeds this threshold
 # so the scratch baseline doesn't double-count toward the curriculum's total.
-SCRATCH_STEP_THRESHOLD = 10_000_000
+SCRATCH_STEP_THRESHOLD = 15_000_000
 
 
 def _event_stats(event_path):
