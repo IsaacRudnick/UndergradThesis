@@ -14,13 +14,14 @@ import os
 
 import numpy as np
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import EvalCallback, ProgressBarCallback
+from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from envs import ArmEnv, ReachTask, ReachHoldTask
 from envs.sensors import make_all_sensors, make_rand_sensors
 from envs.extractors import FrozenCNNExtractor
+from train_utils import WallTimeProgressBarCallback
 
 N_ENVS = 96
 N_EVAL_ENVS = 30
@@ -190,7 +191,7 @@ def main():
 
     print(f"Training {phase_label} ({args.curriculum}) for {args.timesteps} steps ...")
     model.learn(total_timesteps=args.timesteps,
-                callback=[eval_callback, ProgressBarCallback()],
+                callback=[eval_callback, WallTimeProgressBarCallback()],
                 reset_num_timesteps=not args.resume)
     model.save(f"models/{args.curriculum}/{save_name}")
     print(f"Saved → models/{args.curriculum}/{save_name}.zip")

@@ -18,13 +18,14 @@ import time
 import numpy as np
 import torch
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import EvalCallback, ProgressBarCallback
+from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
 from envs import ArmEnv, PickAndPlaceTask
 from envs.sensors import make_all_sensors, make_rand_sensors
 from envs.extractors import FrozenCNNExtractor
+from train_utils import WallTimeProgressBarCallback
 
 N_ENVS = 96
 N_EVAL_ENVS = 30
@@ -471,11 +472,7 @@ def main():
             return True
 
     print(f"Training Pick-and-Place ({args.curriculum}) for {args.timesteps} steps ...")
-    callbacks = [eval_callback, ProgressBarCallback()]
-    if not args.render:
-        callbacks.append(SyncNormCallback(eval_env))
-        callbacks.append(SaveVecNormOnBestCallback(eval_callback, best_vecnorm_save))
-    callbacks.append(EntCoefDecayCallback(decay_start=7_500_000, decay_end=12_500_000))
+    prior_total = 0.0
     if args.max_hours is not None:
         prior = _phase_wall_hours(args.curriculum)
         prior_total = sum(prior.values())
@@ -489,6 +486,17 @@ def main():
                   f"{args.max_hours:.2f} h) — training will stop on first step.")
         else:
             print(f"              remaining         : {remaining:6.2f} h")
+    callbacks = [
+        eval_callback,
+        WallTimeProgressBarCallback(
+            max_hours=args.max_hours, prior_hours=prior_total
+        ),
+    ]
+    if not args.render:
+        callbacks.append(SyncNormCallback(eval_env))
+        callbacks.append(SaveVecNormOnBestCallback(eval_callback, best_vecnorm_save))
+    callbacks.append(EntCoefDecayCallback(decay_start=7_500_000, decay_end=12_500_000))
+    if args.max_hours is not None:
         callbacks.append(MaxWallTimeCallback(args.max_hours, prior_total))
     model.learn(total_timesteps=args.timesteps, callback=callbacks,
                 reset_num_timesteps=not args.resume)

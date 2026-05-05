@@ -15,13 +15,14 @@ import os
 import numpy as np
 import torch
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import EvalCallback, ProgressBarCallback, BaseCallback
+from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
 from envs import ArmEnv, GraspTask
 from envs.sensors import make_all_sensors, make_rand_sensors
 from envs.extractors import FrozenCNNExtractor
+from train_utils import WallTimeProgressBarCallback
 
 N_ENVS = 96
 N_EVAL_ENVS = 30
@@ -448,7 +449,7 @@ def main():
         )
 
     print(f"Training {phase_label} ({args.curriculum}) for {args.timesteps} steps ...")
-    callbacks = [eval_callback, ProgressBarCallback()]
+    callbacks = [eval_callback, WallTimeProgressBarCallback()]
     if not args.render:
         callbacks.append(SyncNormCallback(eval_env))
     model.learn(total_timesteps=args.timesteps, callback=callbacks,
