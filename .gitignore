@@ -2,7 +2,8 @@
 logs/
 models/
 analysis/figures/**
+.claude/
+thumbnails/
 # pycaches
 __pycache__/
 *.pyc
-.claude/
