@@ -1,7 +1,7 @@
 # Hierarchical RL for Robotic Arm Manipulation
 
 > [!WARNING]  
-> This project is a work in progress. The code is available, but training and evaluation are not yet complete, and the final thesis writeup is forthcoming. There is also vestigial code throughout the project, leftover from a LOT of experimentation and iteration. My primary focus at this time is not on this code, but rather the writeup. I will clean up the code and add more documentation once the thesis is done. In the meantime, please reach out if you have questions about the code or want to collaborate on further development. 
+> This project is a work in progress. The code is available, but training and evaluation are not yet complete, and the final thesis writeup is forthcoming. There is also vestigial code throughout the project, leftover from a LOT of experimentation and iteration. My primary focus at this time is not on this code, but rather the writeup. I will clean up the code and add more documentation once the thesis is done. In the meantime, please reach out if you have questions about the code or want to collaborate on further development.
 
 ---
 
@@ -54,11 +54,10 @@ make setup
 Each phase is run once per curriculum (`all`, `ordered`, `random`), and each phase automatically loads the matching model from the previous one. The minimum sequence:
 
 ```bash
-make run-all 
+make run-all
 ```
 
 This works, but will take a LONG time. On two EPYC 7601 CPUs, it takes ~3 days. On consumer hardware, it can take weeks. Thus, training each phase separately is recommended, both for faster iteration and to allow resuming if a run is interrupted. The commands below show how to run each phase separately, but the Makefile has shortcuts for the full pipeline under each curriculum.
-
 
 ```bash
 # Phase 1A: Reach
@@ -82,7 +81,7 @@ python train_pick_place.py --timesteps 7500000 --curriculum ordered
 python train_pick_place.py --timesteps 7500000 --curriculum random
 ```
 
-Training uses 46 parallel envs and 10 eval envs via `SubprocVecEnv`. A separate `make run-scratch-full` target produces the from-scratch pick-and-place baseline (14M steps, matching the chain's total timestep budget) used by `analysis/plot_scratch_vs_chain_full.py`. See [HowToRun.md](HowToRun.md) for the full set of run instructions, including how to resume interrupted runs, all command-line flags, transfer-mode options for `train_grasp.py`, and visualization commands.
+Training uses 96 parallel envs and 30 eval envs via `SubprocVecEnv`. A separate `make run-scratch-full` target produces the from-scratch pick-and-place baseline (14M steps, matching the chain's total timestep budget) used by `analysis/plot_scratch_vs_chain_full.py`. See [HowToRun.md](HowToRun.md) for the full set of run instructions, including how to resume interrupted runs, all command-line flags, transfer-mode options for `train_grasp.py`, and visualization commands.
 
 ## Visualizing a Trained Model
 
