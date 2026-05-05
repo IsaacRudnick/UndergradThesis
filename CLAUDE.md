@@ -44,7 +44,7 @@ Four progressive phases: **Reach → Reach-Hold → Grasp → Pick-and-Place**, 
 ## Training
 
 - Algorithm: PPO (stable-baselines3)
-- 46 parallel training envs, 10 eval envs (SubprocVecEnv)
+- 96 parallel training envs, 30 eval envs (SubprocVecEnv)
 - Run instructions in `HowToRun.md`
 - Makefile shortcuts: `make setup` (venv + requirements), `make run-all` / `make run-ordered` / `make run-random` (full 4-phase pipeline per curriculum), `make run` (all three)
 
