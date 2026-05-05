@@ -41,7 +41,7 @@ PHASES = ["reach", "reach_hold", "grasp", "pick_place"]
 # Per-curriculum run selection. Override `ppo_n` to pick a specific attempt.
 RUNS = [
     dict(curriculum="all",     ppo_n=1, label="all"),
-    dict(curriculum="ordered", ppo_n=1, label="ordered"),
+    dict(curriculum="ordered", ppo_n=1, label="developed"),
     dict(curriculum="random",  ppo_n=1, label="random"),
 ]
 

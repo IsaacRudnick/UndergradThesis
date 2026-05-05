@@ -42,7 +42,7 @@ RUNS = [
         phases={"reach": 1, "reach_hold": 1, "grasp": 1, "pick_place": 1},
     ),
     dict(
-        curriculum="ordered", label="ordered",
+        curriculum="ordered", label="developed",
         phases={"reach": 1, "reach_hold": 1, "grasp": 1, "pick_place": 1},
     ),
     dict(

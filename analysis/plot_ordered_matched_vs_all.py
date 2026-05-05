@@ -189,7 +189,7 @@ def _plot_panel(ax, metric, offsets, ordered_data, all_data):
         _draw_solid_dashed(
             ax, x, ordered_data["steps"], ordered_data["values"],
             DASHED_AFTER_STEPS, SMOOTH, c,
-            f"ordered  (prior: {off:.1f} h; dashed after {DASHED_AFTER_STEPS/1e6:.1f}M steps)",
+            f"developed  (prior: {off:.1f} h; dashed after {DASHED_AFTER_STEPS/1e6:.1f}M steps)",
         )
         handoff_marks.append((off, c, ":"))
 
@@ -274,7 +274,7 @@ def main():
         )
 
     fig.suptitle(
-        f"{PHASE_TITLES[PHASE]} · ordered matched to all by wall-clock "
+        f"{PHASE_TITLES[PHASE]} · developed matched to all by wall-clock "
         f"(EMA α = {SMOOTH:.2f})",
         fontsize=13.5, fontweight="semibold",
     )
