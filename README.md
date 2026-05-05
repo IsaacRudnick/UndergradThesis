@@ -21,7 +21,7 @@ The thesis compares established learning curricula against a natural-development
 
 - `all`: every sensor (proprioception, camera, depth) is active in every episode from the start.
 - `ordered`: a fixed per-phase sensor subset, with the camera withheld until Phase 3. This mimics a developmental trajectory in which richer sensing comes online only when the task requires it.
-- `random`: each episode randomly drops 30% of the sensors and exposes a `SensorMaskSensor` in the observation, so the policy has to learn to handle missing modalities.
+- `random`: each episode randomly drops sensors (15% independent chance per sensor) and exposes a `SensorMaskSensor` in the observation, so the policy has to learn to handle missing modalities.
 
 Running the same three-phase pipeline under each curriculum and comparing final task performance lets us ask whether developmental sensor introduction yields better policies than full-information training or robustness-style dropout.
 
@@ -41,7 +41,7 @@ Saved weights and `VecNormalize` stats live in `models/`, TensorBoard logs in `l
 
 The arm operates in a workspace bounded by `[-0.15, -0.15, 0.10]` to `[0.15, 0.15, 0.35]` metres. Joint velocity is capped at 1.5 rad/s, the realistic under-load spec for the LSS servos. The action space is 5D continuous in `[-1, 1]`: four arm joints plus one gripper.
 
-A grasp counts as successful if the cube is lifted more than 5 cm with bilateral fingertip contact for 10 consecutive steps. A pick-and-place counts as successful if the cube ends up within 5 cm of the target on the destination table and is released. Each episode places a source table at a random angle and a destination table 120 to 240 degrees away from it.
+A grasp counts as successful if the cube is lifted more than 5 cm with bilateral fingertip contact for 10 consecutive steps. A pick-and-place counts as successful if the cube ends up within 5 cm of the target on the destination table and is released. Each episode places a source table at a random angle and a destination table 60 to 120 degrees away from it.
 
 ## Setup
 
@@ -66,9 +66,9 @@ python train_reach.py --timesteps 500000 --curriculum ordered
 python train_reach.py --timesteps 500000 --curriculum random
 
 # Phase 1B: Reach Hold (loads ppo_reach_<curriculum>.zip)
-python train_reach.py --phase hold --load-model models/ppo_reach_all.zip --timesteps 1000000
-python train_reach.py --phase hold --load-model models/ppo_reach_ordered.zip --timesteps 1000000 --curriculum ordered
-python train_reach.py --phase hold --load-model models/ppo_reach_rand.zip --timesteps 1000000 --curriculum random
+python train_reach.py --phase hold --load-model models/all/ppo_reach_all.zip --timesteps 1000000
+python train_reach.py --phase hold --load-model models/ordered/ppo_reach_ordered.zip --timesteps 1000000 --curriculum ordered
+python train_reach.py --phase hold --load-model models/random/ppo_reach_random.zip --timesteps 1000000 --curriculum random
 
 # Phase 2: Grasp (auto-loads ppo_reach_hold_<curriculum>.zip)
 python train_grasp.py --timesteps 5000000
@@ -76,17 +76,17 @@ python train_grasp.py --timesteps 5000000 --curriculum ordered
 python train_grasp.py --timesteps 5000000 --curriculum random
 
 # Phase 3: Pick and Place (auto-loads ppo_grasp_<curriculum>.zip)
-python train_pick_place.py --timesteps 7500000
-python train_pick_place.py --timesteps 7500000 --curriculum ordered
-python train_pick_place.py --timesteps 7500000 --curriculum random
+python train_pick_place.py --timesteps 10000000
+python train_pick_place.py --timesteps 10000000 --curriculum ordered
+python train_pick_place.py --timesteps 10000000 --curriculum random
 ```
 
-Training uses 96 parallel envs and 30 eval envs via `SubprocVecEnv`. A separate `make run-scratch-full` target produces the from-scratch pick-and-place baseline (14M steps, matching the chain's total timestep budget) used by `analysis/plot_scratch_vs_chain_full.py`. See [HowToRun.md](HowToRun.md) for the full set of run instructions, including how to resume interrupted runs, all command-line flags, transfer-mode options for `train_grasp.py`, and visualization commands.
+Training uses 96 parallel envs and 30 eval envs via `SubprocVecEnv`. A separate `make run-scratch-full` target produces the from-scratch pick-and-place baseline (16.5M steps, matching the chain's total timestep budget) used by `analysis/plot_scratch_vs_chain_full.py`. See [HowToRun.md](HowToRun.md) for the full set of run instructions, including how to resume interrupted runs, all command-line flags, transfer-mode options for `train_grasp.py`, and visualization commands.
 
 ## Visualizing a Trained Model
 
 ```bash
-python see_arm_camera.py --model models/ppo_pick_place_all.zip --task pick_and_place
+python see_arm_camera.py --model models/all/ppo_pick_place_all.zip --task pick_and_place
 ```
 
 Run `see_arm_camera.py` with no arguments for manual control of the arm in the GUI.
