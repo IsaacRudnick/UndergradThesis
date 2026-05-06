@@ -1,7 +1,8 @@
 """
-plot_ordered_matched_vs_all.py — Pick-and-Place: 'all' vs. 'ordered' on a
-cumulative wall-clock axis, with the ordered curve extended (via the
---max-hours-budgeted resume) until it has matched 'all's total hours.
+plot_ordered_matched_vs_all.py — Pick-and-Place: 'all' vs. 'ordered' (vs.
+'random' when present) on a cumulative wall-clock axis, with the ordered curve
+extended (via the --max-hours-budgeted resume) until it has matched 'all's
+total hours.
 
 PPO_1 already contains the stitched data for ordered (the resume writes more
 event files into the same dir). If future resumes land in new PPO_<n> dirs,
@@ -12,16 +13,23 @@ time).
 Up to step DASHED_AFTER_STEPS the ordered curve is solid (= original budget);
 beyond that it is dashed (= bonus wall-clock granted by the resume).
 
+The random curve is rendered solid throughout (single contiguous run) and is
+auto-detected: if no proper PPO_<n> dir exists for pick_place_random the
+curve is silently skipped.
+
 Usage (from project root):
     .venv/bin/python analysis/plot_ordered_matched_vs_all.py
 """
 
 import glob
 import os
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+
+from matplotlib.ticker import FixedLocator
 
 from _common import (
     CURRICULUM_COLORS,
@@ -35,7 +43,6 @@ from _common import (
     save,
     setup_style,
     smooth_ema,
-    style_reward_axis,
     style_success_axis,
 )
 
@@ -48,30 +55,41 @@ PHASE = "pick_place"
 ALL_PPO_N = 1
 
 
+_PPO_DIR_RE = re.compile(r"^PPO_(\d+)$")
+
+
 def _all_ppo_ns(phase, curriculum):
     """Return every PPO_<n> subdir under logs/<phase>_<curriculum>/, sorted by n.
 
     Auto-detects resume runs so the plot stays correct as `--resume` calls
-    append new PPO_<n> dirs without needing manual edits here.
+    append new PPO_<n> dirs without needing manual edits here. Strict
+    `PPO_<digits>` match: dirs like `PPO_0_OLD_...` are deliberately ignored.
     """
     d = os.path.join(LOG_ROOT, f"{phase}_{curriculum}")
     if not os.path.isdir(d):
         return []
     ns = []
     for run_dir in glob.glob(os.path.join(d, "PPO_*")):
-        try:
-            ns.append(int(os.path.basename(run_dir).split("_")[1]))
-        except (IndexError, ValueError):
-            continue
+        m = _PPO_DIR_RE.match(os.path.basename(run_dir))
+        if m:
+            ns.append(int(m.group(1)))
     return sorted(ns)
 
 
 ORDERED_PPO_NS = _all_ppo_ns(PHASE, "ordered") or [1]
+RANDOM_PPO_NS  = _all_ppo_ns(PHASE, "random")  or [1]
 
-# Original pick_place budget (steps). Curve is solid up to here, dashed after.
-DASHED_AFTER_STEPS = 7_500_000
+# Original pick_place budget (steps); marks where the resume's bonus training
+# begins. Curve is solid up to here, dashed after.
+DASHED_AFTER_STEPS = 10_000_000
 
 SMOOTH = 0.9
+
+# Reward y-axis style:
+#   "linear" — linear scale; only the zero-line is labeled (magnitudes hidden)
+#   "log"    — symlog scale with the usual log-spaced tick labels
+# The zero-line is drawn explicitly in both modes.
+REWARD_SCALE = "log"
 
 METRICS = [
     dict(tag="rollout/ep_rew_mean", title="Reward",            kind="reward"),
@@ -169,7 +187,7 @@ def _draw_solid_dashed(ax, x, steps, values, split_step, smooth, color, label):
         )
 
 
-def _plot_panel(ax, metric, offsets, ordered_data, all_data):
+def _plot_panel(ax, metric, offsets, ordered_data, all_data, random_data):
     handoff_marks = []
 
     # 'all' — solid curve.
@@ -181,6 +199,15 @@ def _plot_panel(ax, metric, offsets, ordered_data, all_data):
                     f"all  (prior: {off:.1f} h)")
         handoff_marks.append((off, c, ":"))
 
+    # 'random' — solid curve.
+    if random_data is not None:
+        c = CURRICULUM_COLORS["random"]
+        off = offsets["random"]
+        x = random_data["rel_hours"] + off
+        draw_series(ax, x, random_data["values"], SMOOTH, c,
+                    f"random  (prior: {off:.1f} h)")
+        handoff_marks.append((off, c, ":"))
+
     # 'ordered' — solid up to DASHED_AFTER_STEPS, dashed after.
     if ordered_data is not None:
         c = CURRICULUM_COLORS["ordered"]
@@ -189,7 +216,7 @@ def _plot_panel(ax, metric, offsets, ordered_data, all_data):
         _draw_solid_dashed(
             ax, x, ordered_data["steps"], ordered_data["values"],
             DASHED_AFTER_STEPS, SMOOTH, c,
-            f"developed  (prior: {off:.1f} h; dashed after {DASHED_AFTER_STEPS/1e6:.1f}M steps)",
+            f"developed  (prior: {off:.1f} h; dashed after {DASHED_AFTER_STEPS // 1_000_000}M steps)",
         )
         handoff_marks.append((off, c, ":"))
 
@@ -206,7 +233,19 @@ def _plot_panel(ax, metric, offsets, ordered_data, all_data):
     ax.set_xlabel("Cumulative real time (hours)  (incl. preceding phases)")
 
     if metric["kind"] == "reward":
-        style_reward_axis(ax)
+        # `rollout/ep_rew_mean` is raw (Monitor sits inside VecNormalize),
+        # so magnitudes are comparable across curricula. Style is governed
+        # by REWARD_SCALE — see top of file.
+        ax.axhline(0, color="#444", linewidth=1.0, alpha=0.7, zorder=2)
+        ax.tick_params(axis="y", labelleft=True, length=3)
+        if REWARD_SCALE == "log":
+            ax.set_yscale("symlog", linthresh=1)
+        elif REWARD_SCALE == "linear":
+            ax.yaxis.set_major_locator(FixedLocator([0]))
+        else:
+            raise ValueError(
+                f"Unknown REWARD_SCALE {REWARD_SCALE!r}; expected 'linear' or 'log'"
+            )
     else:
         style_success_axis(ax)
     ax.margins(x=0.02)
@@ -218,6 +257,7 @@ def main():
     offsets = {
         "all":     prior_phase_hours("all"),
         "ordered": prior_phase_hours("ordered"),
+        "random":  prior_phase_hours("random"),
     }
 
     print("Preceding-phase durations (hours):")
@@ -227,6 +267,7 @@ def main():
     probe = METRICS[0]["tag"]
     ordered_probe = load_stitched(PHASE, "ordered", ORDERED_PPO_NS, probe)
     all_probe     = load_run(PHASE, "all", ALL_PPO_N, probe)
+    random_probe  = load_stitched(PHASE, "random", RANDOM_PPO_NS, probe)
 
     if ordered_probe is not None:
         total_h = float(ordered_probe["rel_hours"][-1])
@@ -247,6 +288,14 @@ def main():
         print(f"  pick_place wall time           : {all_h:6.2f} h")
         print(f"  with prior-phase offset        : {offsets['all'] + all_h:6.2f} h cumulative")
 
+    if random_probe is not None:
+        rand_h = float(random_probe["rel_hours"][-1])
+        print(f"random pick_place (stitched across PPO_N={RANDOM_PPO_NS}):")
+        print(f"  pick_place wall time           : {rand_h:6.2f} h "
+              f"({len(random_probe['steps'])} points, "
+              f"{random_probe['steps'][0]:,} → {random_probe['steps'][-1]:,} steps)")
+        print(f"  with prior-phase offset        : {offsets['random'] + rand_h:6.2f} h cumulative")
+
     fig, axes = plt.subplots(
         1, len(METRICS),
         figsize=(5.8 * len(METRICS), 4.2),
@@ -259,7 +308,8 @@ def main():
         ax.set_title(m["title"], pad=8)
         ordered_data = load_stitched(PHASE, "ordered", ORDERED_PPO_NS, m["tag"])
         all_data     = load_run(PHASE, "all", ALL_PPO_N, m["tag"])
-        _plot_panel(ax, m, offsets, ordered_data, all_data)
+        random_data  = load_stitched(PHASE, "random", RANDOM_PPO_NS, m["tag"])
+        _plot_panel(ax, m, offsets, ordered_data, all_data, random_data)
 
     handles, labels = axes[0].get_legend_handles_labels()
     if handles:
@@ -274,11 +324,11 @@ def main():
         )
 
     fig.suptitle(
-        f"{PHASE_TITLES[PHASE]} · developed matched to all by wall-clock "
-        f"(EMA α = {SMOOTH:.2f})",
+        f"{PHASE_TITLES[PHASE]} · cumulative wall-clock "
+        f"(developed matched to all)",
         fontsize=13.5, fontweight="semibold",
     )
-    save(fig, f"ordered_matched_vs_all_{PHASE}.png")
+    save(fig, f"cumulative_matched_{PHASE}.png")
 
 
 if __name__ == "__main__":

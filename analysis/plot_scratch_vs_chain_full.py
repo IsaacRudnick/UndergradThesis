@@ -53,7 +53,7 @@ PRIOR_PHASE_STEPS = 500_000 + 1_000_000 + 5_000_000  # 6,500,000
 
 # Used to distinguish chain (~10M) from scratch (~14M) runs by their final
 # step count. Anything above this threshold is the scratch run.
-SCRATCH_STEP_THRESHOLD = 10_000_000
+SCRATCH_STEP_THRESHOLD = 12_000_000
 
 
 def _detect_runs(phase, curriculum):

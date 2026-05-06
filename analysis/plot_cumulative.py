@@ -128,7 +128,7 @@ def main():
         )
 
     fig.suptitle(
-        f"{PHASE_TITLES.get(FINAL_PHASE, FINAL_PHASE)} · cumulative training time",
+        f"{PHASE_TITLES.get(FINAL_PHASE, FINAL_PHASE)} · curricula on cumulative wall-clock",
         fontsize=13.5, fontweight="semibold",
     )
     save(fig, f"cumulative_{FINAL_PHASE}.png")
