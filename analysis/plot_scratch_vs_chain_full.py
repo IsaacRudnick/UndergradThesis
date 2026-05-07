@@ -51,7 +51,7 @@ CURRICULUM = "all"
 # by this amount so its x-axis represents cumulative training timesteps.
 PRIOR_PHASE_STEPS = 500_000 + 1_000_000 + 5_000_000  # 6,500,000
 
-# Used to distinguish chain (~10M) from scratch (~14M) runs by their final
+# Used to distinguish chain (~10M) from scratch (~16.5M) runs by their final
 # step count. Anything above this threshold is the scratch run.
 SCRATCH_STEP_THRESHOLD = 12_000_000
 
