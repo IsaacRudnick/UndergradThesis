@@ -1,11 +1,14 @@
 # Hierarchical RL for Robotic Arm Manipulation
 
-> [!WARNING]  
-> This project is a work in progress. The code is available, but training and evaluation are not yet complete, and the final thesis writeup is forthcoming. There is also vestigial code throughout the project, leftover from a LOT of experimentation and iteration. My primary focus at this time is not on this code, but rather the writeup. I will clean up the code and add more documentation once the thesis is done. In the meantime, please reach out if you have questions about the code or want to collaborate on further development.
+A BA Cognitive Science thesis project at Vassar College, advised by Ken Livingston (first reader) and Josh de Leeuw (second reader).
+
+[Read the writeup here](https://isaacrudnick.com/undergradthesis)
+
+Research poster (click for full-size):
+
+<img width="700" alt="Research poster about this project" src="Poster.png" />
 
 ---
-
-A BA Cognitive Science thesis project at Vassar College, advised by Ken Livingston (first reader) and Josh de Leeuw (second reader).
 
 ## Overview
 
