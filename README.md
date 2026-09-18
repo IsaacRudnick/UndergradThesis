@@ -34,6 +34,8 @@ Results, analysis, and the full thesis writeup will be added here once training 
 
 ## Project Layout
 
+<img width="1020" alt="Diagram explaining project layout" src="diagram.png" />
+
 `envs/` holds the core Gymnasium environment. `arm_env.py` defines `ArmEnv`, the base PyBullet env running at 240 Hz; `tasks.py` defines `ReachTask`, `GraspTask`, and `PickAndPlaceTask` along with their reward functions; `sensors.py` contains the composable observation sensors (proprioceptive, camera, depth, mask); and `extractors.py` has the SB3 feature extractors.
 
 Training scripts live at the project root: `train_reach.py`, `train_grasp.py`, and `train_pick_place.py`, one per phase. `see_arm_camera.py` runs a trained model in a GUI window or, with no arguments, lets you drive the arm manually. `diagnose_reward.py` shows a live breakdown of reward components for debugging. `analysis/` contains the curricula-comparison plotting scripts (`plot_curricula.py`, `plot_cumulative.py`, `plot_scratch_vs_chain_full.py`); see [HowToRun.md](HowToRun.md#analysis-plots) for usage.
