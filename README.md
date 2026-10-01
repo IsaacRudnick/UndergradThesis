@@ -2,7 +2,7 @@
 
 A BA Cognitive Science thesis project at Vassar College, advised by Ken Livingston (first reader) and Josh de Leeuw (second reader).
 
-[Read the writeup here](https://isaacrudnick.com/undergradthesis)
+[Read the writeup here](https://isaacrudnick.com/BA/thesis/pdf)
 
 Research poster (click for full-size):
 
